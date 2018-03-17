@@ -509,28 +509,28 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
     def _compare(src_list, dst_lst, src_remote, dst_remote, file):
         """Return True if src_list[file] matches dst_list[file], else False"""
         attribs_match = True
-        if not (file in src_list and file in dst_list):
+        if not (file in src_list and file.lower() in dst_list):
             info(u"%s: does not exist in one side or the other: src_list=%s, dst_list=%s" % (file, file in src_list, file in dst_list))
             return False
 
         ## check size first
         if 'size' in cfg.sync_checks:
-            if 'size' in dst_list[file] and 'size' in src_list[file]:
-                if dst_list[file]['size'] != src_list[file]['size']:
-                    debug(u"xfer: %s (size mismatch: src=%s dst=%s)" % (file, src_list[file]['size'], dst_list[file]['size']))
+            if 'size' in dst_list[file.lower()] and 'size' in src_list[file]:
+                if dst_list[file.lower()]['size'] != src_list[file]['size']:
+                    debug(u"xfer: %s (size mismatch: src=%s dst=%s)" % (file, src_list[file]['size'], dst_list[file.lower()]['size']))
                     attribs_match = False
 
         ## check md5
         compare_md5 = 'md5' in cfg.sync_checks
         # Multipart-uploaded files don't have a valid md5 sum - it ends with "...-nn"
         if compare_md5:
-            if (src_remote == True and '-' in src_list[file]['md5']) or (dst_remote == True and '-' in dst_list[file]['md5']):
+            if (src_remote == True and '-' in src_list[file]['md5']) or (dst_remote == True and '-' in dst_list[file.lower()]['md5']):
                 compare_md5 = False
                 info(u"disabled md5 check for %s" % file)
         if attribs_match and compare_md5:
             try:
                 src_md5 = src_list.get_md5(file)
-                dst_md5 = dst_list.get_md5(file)
+                dst_md5 = dst_list.get_md5(file.lower())
             except (IOError,OSError):
                 # md5 sum verification failed - ignore that file altogether
                 debug(u"IGNR: %s (disappeared)" % (file))
@@ -552,7 +552,7 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
     ## Items left on src_list will be transferred
     ## Items left on update_list will be transferred after src_list
     ## Items left on copy_pairs will be copied from dst1 to dst2
-    update_list = FileDict(ignore_case = False)
+    update_list = FileDict(ignore_case = True)
     ## Items left on dst_list will be deleted
     copy_pairs = []
 
@@ -561,12 +561,12 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
     for relative_file in src_list.keys():
         debug(u"CHECK: %s" % (relative_file))
 
-        if relative_file in dst_list:
+        if relative_file.lower() in dst_list:
             ## Was --skip-existing requested?
             if cfg.skip_existing:
                 debug(u"IGNR: %s (used --skip-existing)" % (relative_file))
                 del(src_list[relative_file])
-                del(dst_list[relative_file])
+                del(dst_list[relative_file.lower()])
                 continue
 
             try:
@@ -575,13 +575,13 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
                 debug(u"IGNR: %s (disappeared)" % (relative_file))
                 warning(u"%s: file disappeared, ignoring." % (relative_file))
                 del(src_list[relative_file])
-                del(dst_list[relative_file])
+                del(dst_list[relative_file.lower()])
                 continue
 
             if same_file:
                 debug(u"IGNR: %s (transfer not needed)" % relative_file)
                 del(src_list[relative_file])
-                del(dst_list[relative_file])
+                del(dst_list[relative_file.lower()])
 
             else:
                 # look for matching file in src
@@ -595,14 +595,14 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
                     debug(u"DST COPY src: %s -> %s" % (dst1, relative_file))
                     copy_pairs.append((src_list[relative_file], dst1, relative_file))
                     del(src_list[relative_file])
-                    del(dst_list[relative_file])
+                    del(dst_list[relative_file.lower()])
                 else:
                     # record that we will get this file transferred to us (before all the copies), so if we come across it later again,
                     # we can copy from _this_ copy (e.g. we only upload it once, and copy thereafter).
                     dst_list.record_md5(relative_file, md5)
                     update_list[relative_file] = src_list[relative_file]
                     del src_list[relative_file]
-                    del dst_list[relative_file]
+                    del dst_list[relative_file.lower()]
 
         else:
             # dst doesn't have this file
@@ -626,7 +626,7 @@ def compare_filelists(src_list, dst_list, src_remote, dst_remote):
     for f in dst_list.keys():
         if f in src_list or f in update_list:
             # leave only those not on src_list + update_list
-            del dst_list[f]
+            del dst_list[f.lower()]
 
     return src_list, dst_list, update_list, copy_pairs
 
